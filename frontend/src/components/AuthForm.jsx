@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { loginUser, signupUser } from "../api/auth";
 import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 
 function AuthForm({ isLogin, onToggleForm }) {
   const [email, setEmail] = useState("");
@@ -30,9 +31,24 @@ function AuthForm({ isLogin, onToggleForm }) {
       }
 
       console.log("API Response:", data);
-      alert(data.message || "Success");
+      toast.success(data.message || "Success");
     } catch (error) {
-      setErrorMessage(error.message || "An error occurred.");
+      const backendMessage =
+        error?.response?.data?.detail || error?.message || "An error occurred.";
+    
+      setErrorMessage(backendMessage);
+    
+      if (backendMessage.toLowerCase().includes("verify your email")) {
+        toast.error(backendMessage, {
+          style: {
+            background: "#fef3c7", // light yellow
+            color: "#92400e",      // dark yellow text
+          },
+          icon: "⚠️",
+        });
+      } else {
+        toast.error(backendMessage);
+      }
     }
   };
 
