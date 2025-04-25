@@ -2,7 +2,8 @@ import React, { useEffect, useState } from "react";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import { useNavigate } from "react-router-dom";
-import { fetchFiles, uploadFile, deleteFile } from "../api/file"; // 👈 new import
+import { fetchFiles, uploadFile, deleteFile } from "../api/file";
+import toast from "react-hot-toast";
 
 const Home = () => {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -15,7 +16,7 @@ const Home = () => {
   useEffect(() => {
     if (!token) {
       navigate("/");
-      alert("No token");
+      toast.error("No token found. Please login.");
     } else {
       loadFiles();
     }
@@ -27,6 +28,7 @@ const Home = () => {
       setFiles(fetchedFiles);
     } catch (err) {
       console.error("Failed to fetch files:", err);
+      toast.error("Failed to load files");
     }
   };
 
@@ -36,23 +38,35 @@ const Home = () => {
 
   const handleUpload = async () => {
     if (!selectedFile) return;
-
+  
     try {
+      const existingFile = files.find(file => file.filename === selectedFile.name);
+  
       await uploadFile(selectedFile, token);
       setSelectedFile(null);
       document.getElementById("file-input").value = "";
-      loadFiles();
+  
+      await loadFiles();
+  
+      if (existingFile) {
+        toast.success("File updated successfully ✅");
+      } else {
+        toast.success("File uploaded successfully 📤");
+      }
     } catch (err) {
       console.error("Upload failed:", err);
+      toast.error("Upload failed ❌");
     }
   };
 
   const handleDelete = async (fileName) => {
     try {
       await deleteFile(fileName, token);
+      toast.success("File deleted!");
       loadFiles();
     } catch (err) {
       console.error("Delete failed:", err);
+      toast.error("Delete failed. Please try again.");
     }
   };
 
@@ -100,8 +114,12 @@ const Home = () => {
                   <tr key={idx} className="border-t">
                     <td className="p-3">{file.filename}</td>
                     <td className="p-3">{file.type}</td>
-                    <td className="p-3">{new Date(file.upload_time).toLocaleString()}</td>
-                    <td className="p-3">{new Date(file.last_updated).toLocaleString()}</td>
+                    <td className="p-3">
+                      {new Date(file.upload_time).toLocaleString()}
+                    </td>
+                    <td className="p-3">
+                      {new Date(file.last_updated).toLocaleString()}
+                    </td>
                     <td className="p-3">
                       <a
                         href={file.cloudfront_url}
