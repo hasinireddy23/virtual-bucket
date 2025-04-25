@@ -1,15 +1,38 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { loginUser, signupUser } from "../api/auth";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import toast from "react-hot-toast";
 
 function AuthForm({ isLogin, onToggleForm }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
-  const navigate = useNavigate();
 
-  // Handles form submission for both login and signup
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const status = params.get("status");
+  
+    if (status) {
+      // Use a flag outside React to persist during quick remounts
+      if (!window._toastShown) {
+        if (status === "success") {
+          toast.success("Email verified! You can now log in.");
+        } else if (status === "failed") {
+          toast.error("Verification link expired or invalid.");
+        }
+        window._toastShown = true; // 👈 survives remounts
+      }
+  
+      // Clean up URL param safely
+      params.delete("status");
+      navigate({ search: params.toString() }, { replace: true });
+    }
+  }, [location.search, navigate]);
+
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage("");
@@ -17,39 +40,42 @@ function AuthForm({ isLogin, onToggleForm }) {
     try {
       let data;
       if (isLogin) {
-        // 🔐 Login logic
         data = await loginUser(email, password);
         localStorage.setItem("access_token", data.access_token);
         localStorage.setItem("email", email);
-        navigate("/home"); // Redirect on success
+        navigate("/home");
       } else {
-        // 📝 Signup logic
         data = await signupUser(email, password);
         setEmail("");
         setPassword("");
-        onToggleForm(); // Switch to login form after signup
+        onToggleForm();
       }
 
       console.log("API Response:", data);
       toast.success(data.message || "Success");
-    } catch (error) {
-      const backendMessage =
-        error?.response?.data?.detail || error?.message || "An error occurred.";
-    
-      setErrorMessage(backendMessage);
-    
-      if (backendMessage.toLowerCase().includes("verify your email")) {
-        toast.error(backendMessage, {
+    } catch (error) {    
+      if (error === "Please verify your email before logging in.") {
+        toast.error("Please verify your email before logging in.", {
           style: {
-            background: "#fef3c7", // light yellow
-            color: "#92400e",      // dark yellow text
+            background: "#fef3c7",
+            color: "#92400e",
           },
-          icon: "⚠️",
+          icon: "✉️",
         });
-      } else {
+      } 
+      if (error === "Invalid credentials") {
+        toast.error("Invalid credentials", {
+          style: {
+            background: "#fef3c7",
+            color: "#92400e",
+          }
+        });
+      }
+      else {
+        setErrorMessage(backendMessage);
         toast.error(backendMessage);
       }
-    }
+    }  
   };
 
   return (
@@ -58,14 +84,12 @@ function AuthForm({ isLogin, onToggleForm }) {
         {isLogin ? "Login" : "Sign Up"}
       </h2>
 
-      {/* 🔴 Display error message if present */}
       {errorMessage && (
         <div className="bg-red-100 text-red-600 p-2 rounded-md mb-4">
           {errorMessage}
         </div>
       )}
 
-      {/* 🌐 Auth Form */}
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
           <label className="block text-sm font-medium mb-1">Email</label>
@@ -99,7 +123,6 @@ function AuthForm({ isLogin, onToggleForm }) {
         </button>
       </form>
 
-      {/* 🔄 Toggle between login/signup */}
       <p className="text-sm text-center mt-4">
         {isLogin ? (
           <>

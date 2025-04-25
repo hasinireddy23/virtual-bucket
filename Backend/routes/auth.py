@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.responses import RedirectResponse
 from auth.jwt_handler import create_access_token, get_password_hash, verify_password
 from auth.jwt_bearer import get_current_user
 from utils.db import user_table
@@ -11,11 +12,16 @@ from utils.ses import send_verification_email
 from auth.jwt_handler import create_verification_token
 from jose import JWTError, jwt
 from datetime import datetime
+from dotenv import load_dotenv
+import os
 
 # Define the router
 router = APIRouter()
 
 # === Routes ===
+
+load_dotenv()
+FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL")
 
 @router.post("/signup")
 def signup(user: User, request: Request):
@@ -86,18 +92,18 @@ def verify_email(token: str):
             raise HTTPException(status_code=400, detail="Invalid token")
 
         if datetime.utcnow().timestamp() > exp:
-            raise HTTPException(status_code=400, detail="Verification link has expired")
+            return RedirectResponse(url=f"{FRONTEND_BASE_URL}/login?status=expired")
 
         # Update user verification in DB
         user = user_table.get_item(Key={"email": email}).get("Item")
         if not user:
-            raise HTTPException(status_code=404, detail="User not found")
+            return RedirectResponse(url=f"{FRONTEND_BASE_URL}/login?status=notfound")
 
         user["verified"] = True
         user_table.put_item(Item=user)
 
-        return {"message": "Email successfully verified!"}
+        return RedirectResponse(url=f"{FRONTEND_BASE_URL}/login?status=success")
 
     except JWTError:
-        raise HTTPException(status_code=400, detail="Invalid token")
+        return RedirectResponse(url=f"{FRONTEND_BASE_URL}/login?status=invalid")
 
